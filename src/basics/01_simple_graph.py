@@ -19,7 +19,7 @@ workflow.set_finish_point('greeter')
 app = workflow.compile()
 
 # %% [4] Visualize the Graph (mermaid)
-from IPython.display import Image, display  # <--- Add this line!
+from IPython.display import Image, display
 display(Image(app.get_graph().draw_mermaid_png()))
 
 # %% [5] Run the Graph
