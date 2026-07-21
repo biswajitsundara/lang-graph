@@ -2,6 +2,7 @@
 Lang chain core concepts
 StateGraph, nodes, edges, and basic patterns
 """
+from colorama import init
 from langchain.chat_models import init_chat_model
 from langgraph.graph import StateGraph, START, END
 from typing_extensions import Annotated, TypedDict
@@ -188,8 +189,106 @@ def demo_message_state():
         print(f"{role}: {msg.content}")
 
 
+#---------------------------------------------------------
+# MULTI STEP MESSAGE STATE GRAPH EXAMPLE
+#---------------------------------------------------------
+class MultiStepState(TypedDict):
+    input: str
+    analyzed: str
+    enhanced: str
+    final: str
+
+def demo_multi_step_message_state():
+    llm = init_chat_model(model="command-r-plus-08-2024", temperature=0)
+
+    def analyze_node(state: MultiStepState) -> dict:
+        """Analyze the input and produce an analysis."""
+        analysis = llm.invoke([HumanMessage(content=f"Analyze this and generate response in one sentence: {state['input']}")])
+        return {"analyzed": analysis.content}
+
+    def enhance_node(state: MultiStepState) -> dict:
+        """Enhance the analyzed content."""
+        enhancement = llm.invoke([HumanMessage(content=f"Take the following text and enhance it with more details in two sentences: {state['analyzed']}")])
+        return {"enhanced": enhancement.content}
+
+    def finalize_node(state: MultiStepState) -> dict:
+        """Finalize the enhanced content."""
+        finalization = llm.invoke([HumanMessage(content=f"Take the following text and finalize it in one sentence concise summary: {state['enhanced']}")])
+        return {"final": finalization.content}
+
+    graph = StateGraph(MultiStepState)
+    graph.add_node("analyze_node", analyze_node)
+    graph.add_node("enhance_node", enhance_node)
+    graph.add_node("finalize_node", finalize_node)
+
+    graph.add_edge(START, "analyze_node")
+    graph.add_edge("analyze_node", "enhance_node")
+    graph.add_edge("enhance_node", "finalize_node")
+    graph.add_edge("finalize_node", END)
+
+    app = graph.compile()
+    result = app.invoke({"input": "Artificial Intelligence"})
+    
+    print("Input:", result["input"])
+    print("Analyzed:", result["analyzed"][:100])  # Print first 100 characters of analyzed content
+    print("Enhanced:", result["enhanced"][:100])      
+    print("Final output:", result["final"])
+
+
+#---------------------------------------------------------
+# EXERCISE: CREATE A LANG GRAPH THAT GENERATES QUESTIONS AND ANSWERS
+#---------------------------------------------------------
+
+def exercise_first_lang_graph():
+    """
+    Create a lang graph that:
+    - Takes a topic as input
+    - Node 1: Generates 3 questions about the topic
+    - Node 2: Answers one of the questions
+    - Returns both question and answer
+    """
+
+    class QAState(TypedDict):
+        topic: str
+        question: str
+        answer: str
+
+    llm = init_chat_model(model="command-r-plus-08-2024", temperature=0)
+
+    def generate_questions(state: QAState) -> dict:
+        response = llm.invoke(
+            f"Generate 3 interesting questions about: {state['topic']}\n"
+            "Format: numbered list"
+        )
+        return {"question": response.content}
+    
+    def answer_question(state: QAState) -> dict:
+        response = llm.invoke(
+            f"Pick ONE question from the following list and provide a detailed answer:\n\n{state['question']}"
+        )
+        return {"answer": response.content}
+    
+    graph = StateGraph(QAState)
+    graph.add_node("generate_questions", generate_questions)
+    graph.add_node("answer_question", answer_question)
+
+    graph.add_edge(START, "generate_questions")
+    graph.add_edge("generate_questions", "answer_question")
+    graph.add_edge("answer_question", END)
+
+    app = graph.compile()
+    result = app.invoke({"topic": "The future of renewable energy"})
+
+    print("\nExercise result:")
+    print(f"Topic: {result['topic']}\n")
+    print(f"Questions Generated:\n{result['question']}\n")  # Fixed key here
+    print(f"Answer Selected:\n{result['answer']}")
+
+
 if __name__ == "__main__":
     #demo_hello_world_graph()
     #demo_simple_graph()
     #demo_accumulating_graph()
-    demo_message_state()
+    #demo_message_state()
+    #demo_multi_step_message_state()
+    exercise_first_lang_graph()
