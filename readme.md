@@ -15,3 +15,6 @@ pip install -r requirements.txt
 ```console
 COHERE_API_KEY=your_actual_api_key_here
 ```
+
+
+https://www.youtube.com/watch?v=jGg_1h0qzaM
